@@ -1,0 +1,82 @@
+# --- Python 缓存文件 ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+
+# --- 虚拟环境 ---
+venv/
+.venv/
+env/
+ENV/
+*.env
+
+# --- IDE / 编辑器 ---
+# PyCharm
+.idea/
+# VSCode
+.vscode/
+# VSCode Python coverage files
+*.coverage
+
+# --- 操作系统生成的文件 ---
+# macOS
+.DS_Store
+# Windows
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# --- 日志文件 ---
+*.log
+logs/
+*.out
+
+# --- 环境变量 / 本地配置 ---
+.env
+*.secret
+*.key
+config.json
+settings_local.py
+
+# --- 构建、打包结果 ---
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# --- 临时文件 / 缓存 ---
+.cache/
+pytest_cache/
+tmp/
+temp/
+*.tmp
+
+# --- Jupyter Notebook 输出缓存 ---
+.ipynb_checkpoints/
+
+# --- 数据集（如有需要自行决定是否忽略） ---
+data/
+datasets/
+*.csv
+*.db
+*.sqlite3
+
+# --- TensorFlow / PyTorch 模型等大文件 ---
+*.h5
+*.tflite
+*.onnx
+*.pth
+*.pt
+models/
+checkpoints/
+
+# --- 图片 / 视频缓存（如项目中有生成） ---
+outputs/
+frames/
+
+# --- 编译后的 C 扩展 ---
+*.so
+git
