@@ -16,7 +16,7 @@
 
 2) 克隆并安装依赖
 ```bash
-git clone <your-repo-url> moyu
+git clone https://github.com/x7722/moyu.git
 cd moyu
 python -m pip install -r requirements.txt
 ```
