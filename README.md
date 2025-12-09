@@ -1,4 +1,4 @@
-# Focus Guard 🛡️👀
+# 摸鱼 🛡️👀
 
 轻量级跨平台（Windows / macOS）“防偷窥”小工具：用摄像头检测画面里是否出现多张人脸，触发后会切换到你的工作软件，并可抓拍留证。
 
@@ -11,7 +11,7 @@
 
 ## 🛠️ 环境准备
 1) 安装 Python 3.9+  
-   - Windows：推荐官方安装包或 Microsoft Store。  
+   - Windows：推荐官方安装包  
    - macOS：`brew install python`
 
 2) 克隆并安装依赖
