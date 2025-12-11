@@ -27,6 +27,48 @@ try:
 except ImportError:
     mp = None
 
+try:
+    import win32con
+    import win32gui
+except ImportError:
+    win32con = None
+    win32gui = None
+
+
+def _bring_window_to_front(keywords: List[str], retries: int = 0, delay: float = 0.2) -> bool:
+    """Try to bring a window matching all keywords to the foreground on Windows."""
+    if win32gui is None or win32con is None:
+        return False
+
+    keywords_lower = [k.lower() for k in keywords if k]
+
+    def _enum_handler(hwnd, result):
+        if not win32gui.IsWindowVisible(hwnd):
+            return
+        title = (win32gui.GetWindowText(hwnd) or "").lower()
+        if all(k in title for k in keywords_lower):
+            result.append(hwnd)
+
+    for attempt in range(max(retries + 1, 1)):
+        handles: List[int] = []
+        try:
+            win32gui.EnumWindows(_enum_handler, handles)
+        except Exception:
+            return False
+
+        for hwnd in handles:
+            try:
+                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                win32gui.SetForegroundWindow(hwnd)
+                return True
+            except Exception:
+                continue
+
+        if attempt < retries:
+            time.sleep(delay)
+
+    return False
+
 
 def _get_base_dir() -> str:
     """
@@ -68,6 +110,7 @@ def _merge_dict(base: dict, override: dict) -> dict:
 BASE_DIR = _get_base_dir()
 BUNDLED_CONFIG_PATH = _get_bundled_config_path()
 DEFAULT_CONFIG_PATH = _get_external_config_path()
+APP_NAME = "moyu"
 
 
 # =========================
@@ -91,6 +134,162 @@ def load_config(path: Optional[str] = None) -> dict:
         return _merge_dict(base_cfg, override_cfg)
 
     return base_cfg
+
+
+class SystemTrayManager:
+    """Minimal system tray helper for Windows."""
+
+    WM_TRAYICON = (win32con.WM_USER + 20) if win32con is not None else 1028
+    MENU_SHOW = 1024
+    MENU_EXIT = 1025
+
+    def __init__(self, app_name: str, on_restore, on_exit):
+        self.app_name = app_name
+        self.on_restore = on_restore
+        self.on_exit = on_exit
+        self._hwnd = None
+        self._hicon = None
+        self._thread: Optional[threading.Thread] = None
+
+    # ---------- lifecycle ----------
+
+    def start(self):
+        if (
+            self._thread
+            or win32gui is None
+            or win32con is None
+            or not sys.platform.startswith("win")
+        ):
+            return
+
+        self._thread = threading.Thread(target=self._message_loop, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        if self._hwnd:
+            try:
+                win32gui.PostMessage(self._hwnd, win32con.WM_CLOSE, 0, 0)
+            except Exception:
+                pass
+        if self._thread:
+            self._thread.join(timeout=1.0)
+            self._thread = None
+
+    # ---------- public api ----------
+
+    def show_notification(self, title: str, message: str, duration_seconds: int = 8):
+        """Show a balloon notification from the tray icon."""
+        if (
+            not self._hwnd
+            or not self._hicon
+            or win32gui is None
+            or win32con is None
+        ):
+            return
+
+        duration_ms = max(5000, min(duration_seconds * 1000, 10000))
+        nid = (
+            self._hwnd,
+            0,
+            win32gui.NIF_INFO,
+            self.WM_TRAYICON,
+            self._hicon,
+            self.app_name,
+            message,
+            duration_ms,
+            title,
+            win32gui.NIIF_INFO,
+        )
+        try:
+            win32gui.Shell_NotifyIcon(win32gui.NIM_MODIFY, nid)
+        except Exception:
+            pass
+
+    # ---------- internals ----------
+
+    def _message_loop(self):
+        h_instance = win32gui.GetModuleHandle(None)
+        wndclass = win32gui.WNDCLASS()
+        wndclass.hInstance = h_instance
+        wndclass.lpszClassName = f"{self.app_name}_TrayWindow"
+        wndclass.lpfnWndProc = self._wnd_proc
+        try:
+            atom = win32gui.RegisterClass(wndclass)
+        except Exception:
+            atom = wndclass.lpszClassName
+
+        try:
+            self._hwnd = win32gui.CreateWindow(
+                atom, self.app_name, 0, 0, 0, 0, 0, 0, 0, h_instance, None
+            )
+        except Exception:
+            return
+        self._hicon = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
+
+        nid = (
+            self._hwnd,
+            0,
+            win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP,
+            self.WM_TRAYICON,
+            self._hicon,
+            self.app_name,
+        )
+        try:
+            win32gui.Shell_NotifyIcon(win32gui.NIM_ADD, nid)
+        except Exception:
+            try:
+                win32gui.DestroyWindow(self._hwnd)
+            except Exception:
+                pass
+            self._hwnd = None
+            return
+        win32gui.PumpMessages()
+        self._remove_icon()
+
+    def _remove_icon(self):
+        if self._hwnd:
+            try:
+                win32gui.Shell_NotifyIcon(win32gui.NIM_DELETE, (self._hwnd, 0))
+            except Exception:
+                pass
+
+    def _show_menu(self):
+        menu = win32gui.CreatePopupMenu()
+        win32gui.AppendMenu(menu, win32con.MF_STRING, self.MENU_SHOW, "打开")
+        win32gui.AppendMenu(menu, win32con.MF_STRING, self.MENU_EXIT, "退出")
+
+        pos = win32gui.GetCursorPos()
+        win32gui.SetForegroundWindow(self._hwnd)
+        win32gui.TrackPopupMenu(
+            menu,
+            win32con.TPM_LEFTALIGN,
+            pos[0],
+            pos[1],
+            0,
+            self._hwnd,
+            None,
+        )
+        win32gui.PostMessage(self._hwnd, win32con.WM_NULL, 0, 0)
+
+    def _wnd_proc(self, hwnd, msg, wparam, lparam):
+        if msg == self.WM_TRAYICON:
+            if lparam == win32con.WM_LBUTTONDBLCLK:
+                if self.on_restore:
+                    self.on_restore()
+            elif lparam == win32con.WM_RBUTTONUP:
+                self._show_menu()
+            return 1
+        if msg == win32con.WM_COMMAND:
+            cmd_id = wparam & 0xFFFF
+            if cmd_id == self.MENU_SHOW and self.on_restore:
+                self.on_restore()
+            elif cmd_id == self.MENU_EXIT and self.on_exit:
+                self.on_exit()
+            return 1
+        if msg == win32con.WM_DESTROY:
+            win32gui.PostQuitMessage(0)
+            return 1
+        return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
 
 
 def get_os_command_key() -> Optional[str]:
@@ -121,6 +320,20 @@ def switch_to_work_app(config: dict) -> None:
         print("当前操作系统未在配置中支持，仅支持 Windows 和 macOS。")
         return
 
+    # 窗口关键字用于激活已有实例或启动后强行前置
+    window_keywords = target.get("window_keywords") or []
+    if not window_keywords:
+        if active_key and active_key.lower() == "idea":
+            window_keywords = ["intellij idea"]
+        elif active_key and active_key.lower() == "vscode":
+            window_keywords = ["visual studio code"]
+        else:
+            window_keywords = [active_key] if active_key else []
+
+    if sys.platform.startswith("win") and window_keywords:
+        # 先尝试前置已在运行的窗口，避免重复启动
+        _bring_window_to_front(window_keywords)
+
     cmd = target.get(cmd_key)
     if not cmd:
         print(f"未为当前系统配置工作应用启动命令: {cmd_key}")
@@ -130,9 +343,14 @@ def switch_to_work_app(config: dict) -> None:
         if sys.platform.startswith("win"):
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = getattr(subprocess, "SW_SHOWNORMAL", 1)
             subprocess.Popen(cmd, shell=True, startupinfo=startupinfo)
         else:
             subprocess.Popen(cmd, shell=True)
+
+        if sys.platform.startswith("win") and window_keywords:
+            # 尝试多次前置窗口，减少任务栏黄闪需要手动点击的情况
+            _bring_window_to_front(window_keywords, retries=10, delay=0.3)
     except Exception as e:
         print(f"切换到工作应用失败: {e}")
 
@@ -423,9 +641,23 @@ class CameraPreviewApp:
         self._last_action_time = 0.0
         self._prev_is_face_present = False
 
+        self.enable_tray = (
+            bool(ui_cfg.get("enable_system_tray", True))
+            and sys.platform.startswith("win")
+            and win32gui is not None
+            and win32con is not None
+        )
+        self.minimize_to_tray = bool(ui_cfg.get("minimize_to_tray", True))
+        self.start_minimized = bool(ui_cfg.get("start_minimized", False))
+        tray_seconds = int(ui_cfg.get("tray_notification_seconds", 8))
+        self.tray_notification_seconds = max(5, min(tray_seconds, 10))
+        self.tray: Optional[SystemTrayManager] = None
+        self._hidden_to_tray = False
+        self._tray_hint_shown = False
+
         # 初始化 Tk 小窗口
         self.root = tk.Tk()
-        self.root.title("Focus Guard – 预览")
+        self.root.title(f"{APP_NAME} - 预览")
         self.root.attributes("-topmost", True)
         self.root.resizable(True, True)
         self.root.geometry("100x100")
@@ -453,18 +685,78 @@ class CameraPreviewApp:
         self.detector = FaceDetectionWorker(config)
         self.detector.start()
 
+        if self.enable_tray:
+            self.tray = SystemTrayManager(
+                APP_NAME,
+                on_restore=lambda: self.root.after(0, self._restore_from_tray),
+                on_exit=lambda: self.root.after(
+                    0, lambda: self._on_close(force_exit=True)
+                ),
+            )
+            try:
+                self.tray.start()
+            except Exception:
+                self.tray = None
+                self.enable_tray = False
+
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.root.bind("<Unmap>", self._on_window_state_change)
         self.root.after(0, self._update_frame)
+        if self.enable_tray and self.start_minimized:
+            self.root.after(150, self._hide_to_tray)
 
     # ---------- Tk 回调 ----------
 
-    def _on_close(self):
-        """关闭窗口时停止检测线程并退出 Tk。"""
+    def _on_close(self, force_exit: bool = False):
+        """关闭窗口时最小化到托盘或退出程序。"""
+        if self.enable_tray and self.minimize_to_tray and not force_exit:
+            self._hide_to_tray()
+            return
+        self._shutdown()
+
+    def _on_window_state_change(self, event):
+        if (
+            event.widget == self.root
+            and self.enable_tray
+            and self.minimize_to_tray
+            and not self._hidden_to_tray
+            and str(self.root.state()) == "iconic"
+        ):
+            self._hide_to_tray()
+
+    def _hide_to_tray(self):
+        self._hidden_to_tray = True
+        self.root.withdraw()
+        if self.tray and not self._tray_hint_shown:
+            self.tray.show_notification(
+                APP_NAME,
+                "moyu 已最小化到托盘，双击图标可恢复。",
+                self.tray_notification_seconds,
+            )
+            self._tray_hint_shown = True
+
+    def _restore_from_tray(self):
+        self._hidden_to_tray = False
+        self.root.deiconify()
+        try:
+            self.root.state("normal")
+        except Exception:
+            pass
+        self.root.lift()
+        try:
+            self.root.focus_force()
+        except Exception:
+            pass
+
+    def _shutdown(self):
         try:
             if self.detector:
                 self.detector.stop()
         except Exception:
             pass
+        if self.tray:
+            self.tray.stop()
+            self.tray = None
         self.root.destroy()
 
     def _show_message(self):
@@ -480,6 +772,18 @@ class CameraPreviewApp:
         if time.time() >= getattr(self, "_message_hide_at", 0):
             self.text_label.config(text="")
             self.text_visible = False
+
+    def _handle_alert(self, frame_bgr):
+        """统一处理报警后的动作：提示、抓拍、切换应用、托盘提醒。"""
+        self._show_message()
+        save_snapshot(self.config, frame_bgr)
+        switch_to_work_app(self.config)
+        if self.tray:
+            self.tray.show_notification(
+                APP_NAME,
+                self.message_text,
+                self.tray_notification_seconds,
+            )
 
     # ---------- 主 UI 循环 ----------
 
@@ -516,9 +820,7 @@ class CameraPreviewApp:
             # 只在 由“无人”->“有人” 且冷却时间已过 时触发一次
             if now - self._last_action_time >= self.cooldown_seconds:
                 self._last_action_time = now
-                self._show_message()
-                save_snapshot(self.config, frame_bgr)
-                switch_to_work_app(self.config)
+                self._handle_alert(frame_bgr)
 
         self._prev_is_face_present = is_face_present
         self._update_message_visibility()
@@ -534,6 +836,11 @@ class CameraPreviewApp:
             try:
                 if self.detector:
                     self.detector.stop()
+            except Exception:
+                pass
+            try:
+                if self.tray:
+                    self.tray.stop()
             except Exception:
                 pass
 
@@ -555,6 +862,22 @@ def run_headless(config: dict) -> None:
     detector = FaceDetectionWorker(config)
     detector.start()
 
+    ui_cfg = config.get("ui", {})
+    tray_seconds = int(ui_cfg.get("tray_notification_seconds", 8))
+    tray_seconds = max(5, min(tray_seconds, 10))
+    tray_message = ui_cfg.get("message", "检测到额外人脸，已切回工作应用。")
+    tray: Optional[SystemTrayManager] = None
+    if (
+        sys.platform.startswith("win")
+        and win32gui is not None
+        and win32con is not None
+    ):
+        tray = SystemTrayManager(APP_NAME, on_restore=lambda: None, on_exit=lambda: None)
+        try:
+            tray.start()
+        except Exception:
+            tray = None
+
     cooldown_seconds = float(config.get("alert_cooldown_seconds", 15))
     last_action_time = 0.0
     prev_is_face_present = False
@@ -575,6 +898,8 @@ def run_headless(config: dict) -> None:
                     print("检测到额外人脸，正在切换到工作应用……")
                     save_snapshot(config, frame_bgr)
                     switch_to_work_app(config)
+                    if tray:
+                        tray.show_notification(APP_NAME, tray_message, tray_seconds)
 
             prev_is_face_present = is_face_present
     except KeyboardInterrupt:
@@ -582,6 +907,8 @@ def run_headless(config: dict) -> None:
     finally:
         detector.stop()
         detector.join(timeout=2)
+        if tray:
+            tray.stop()
 
 
 # =========================
@@ -612,11 +939,17 @@ def main():
             run_headless(config)
             return
 
-        print("应用已启动（带摄像头预览窗口）：")
+        print(f"{APP_NAME} 已启动（带摄像头预览窗口）：")
         print(" - 窗口默认大小约 100x100，黑色背景，适配暗色模式，可自由拖动、调整。")
         print(" - 使用 MediaPipe Face Detection 高精度检测人脸，带多帧稳定判断与区域过滤。")
         print(" - 检测到多人时会在窗口内显示提示文字、抓拍一张照片并切换到工作应用。")
-        print(" - 关闭窗口即可退出应用。")
+        if app.enable_tray:
+            print(" - 支持托盘运行：最小化或关闭窗口会隐藏到托盘，双击图标恢复，右键托盘图标可退出。")
+            print(
+                f" - 报警时会在托盘气泡提醒，约 {app.tray_notification_seconds} 秒后自动消失。"
+            )
+        else:
+            print(" - 当前环境未启用托盘，关闭窗口即退出。")
 
         app.run()
     else:
