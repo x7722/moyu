@@ -64,9 +64,9 @@ snapshot:
 ```bash
 python -m pip install pyinstaller
 ```
-2) 生成无控制台、单文件 exe（含内置配置与 mediapipe 数据）：
+2) 使用 `main.spec` 打包（含内置配置与 mediapipe 数据，无控制台窗口）：
 ```bash
-python -m PyInstaller --onefile --noconsole --name moyu --add-data "config.yml;." --collect-data mediapipe main.py
+pyinstaller main.spec
 ```
 3) 产物位于 `dist/moyu.exe`。把需要覆盖的 `config.yml`（或 `config.yaml`）放在与 `moyu.exe` 同目录即可。
 
