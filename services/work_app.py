@@ -3,7 +3,7 @@ import subprocess
 import time
 from typing import Optional, List
 
-from deps import sys, win32con, win32gui
+from core.deps import sys, win32con, win32gui
 
 
 def _bring_window_to_front(keywords: List[str], retries: int = 0, delay: float = 0.2) -> bool:

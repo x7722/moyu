@@ -3,11 +3,16 @@ import sys
 from typing import List
 
 
+def get_project_root() -> str:
+    """Return the project root directory (parent of core/)."""
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
 def get_base_dir() -> str:
     """Return the directory used as runtime base (handles PyInstaller onefile)."""
     if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.abspath(__file__))
+    return get_project_root()
 
 
 def _candidate_config_names() -> List[str]:
@@ -21,7 +26,7 @@ def get_bundled_config_paths() -> list[str]:
     Only YAML configs are supported now.
     """
     bundle_dir = getattr(sys, "_MEIPASS", None)  # PyInstaller onefile temp dir
-    base = bundle_dir or os.path.dirname(os.path.abspath(__file__))
+    base = bundle_dir or get_project_root()
     return [os.path.join(base, name) for name in _candidate_config_names()]
 
 

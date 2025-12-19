@@ -1,7 +1,9 @@
+import os
 import threading
 from typing import Optional, Callable
 
-from deps import sys, win32con, win32gui
+from core.deps import sys, win32con, win32gui
+from core.paths import get_base_dir
 
 
 class SystemTrayManager:
@@ -78,6 +80,31 @@ class SystemTrayManager:
 
     # ---------- internals ----------
 
+    def _load_custom_icon(self):
+        """尝试从程序目录加载自定义图标文件。"""
+        try:
+            # 优先从 PyInstaller 打包目录加载
+            bundle_dir = getattr(sys, "_MEIPASS", None)
+            if bundle_dir:
+                icon_path = os.path.join(bundle_dir, "moyu.ico")
+            else:
+                icon_path = os.path.join(get_base_dir(), "moyu.ico")
+            
+            if os.path.exists(icon_path):
+                # 使用 LoadImage 加载 ICO 文件
+                import win32api
+                hicon = win32gui.LoadImage(
+                    0,
+                    icon_path,
+                    win32con.IMAGE_ICON,
+                    16, 16,  # 小图标尺寸
+                    win32con.LR_LOADFROMFILE
+                )
+                return hicon
+        except Exception:
+            pass
+        return None
+
     def _message_loop(self):
         h_instance = win32gui.GetModuleHandle(None)
         wndclass = win32gui.WNDCLASS()
@@ -95,7 +122,11 @@ class SystemTrayManager:
             )
         except Exception:
             return
-        self._hicon = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
+        
+        # 尝试加载自定义图标
+        self._hicon = self._load_custom_icon()
+        if not self._hicon:
+            self._hicon = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
 
         nid = (
             self._hwnd,

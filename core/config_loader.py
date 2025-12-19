@@ -6,7 +6,7 @@ try:
 except ImportError:  # pragma: no cover
     yaml = None
 
-from paths import get_bundled_config_paths, get_external_config_paths
+from .paths import get_bundled_config_paths, get_external_config_paths
 
 
 def _merge_dict(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
@@ -57,7 +57,10 @@ def load_config(path: Optional[str] = None) -> Dict[str, Any]:
             try:
                 base_cfg = _load_config_file(candidate)
                 break
-            except Exception:
+            except ModuleNotFoundError:
+                raise  # 缺少依赖时直接抛出
+            except Exception as e:
+                print(f"警告：加载配置文件失败 {candidate}: {e}")
                 continue
     if not base_cfg:
         raise FileNotFoundError("未找到内置配置文件（config.yml 或 config.yaml）。")

@@ -10,6 +10,31 @@ moyu（摸鱼）是轻量级跨平台（Windows / macOS）的“防偷窥”小�
 - 🔔 托盘提醒：可最小化到系统托盘，报警时弹出气泡提示（默认 8 秒，5~10 秒自动收起）。
 - ⚙️ 配置覆盖：打包内置默认配置，exe 同目录放精简 `config.yml`（或 `config.yaml`）即可覆盖想改的字段，其他参数沿用默认值。
 
+## 📁 项目结构
+```
+moyu/
+├── main.py              # 程序入口
+├── config.yml           # 默认配置文件
+├── main.spec            # PyInstaller 打包配置
+├── requirements.txt     # Python 依赖
+│
+├── core/                # 核心功能模块
+│   ├── constants.py     # 常量定义
+│   ├── deps.py          # 依赖导入（兼容处理）
+│   ├── paths.py         # 路径工具
+│   ├── config_loader.py # 配置加载与合并
+│   └── detector.py      # MediaPipe 人脸检测线程
+│
+├── services/            # 业务服务模块
+│   ├── snapshot.py      # 抓拍保存服务
+│   └── work_app.py      # 工作应用切换服务
+│
+└── ui/                  # 界面模块
+    ├── tray.py          # 系统托盘管理
+    ├── ui_app.py        # GUI 预览窗口
+    └── headless.py      # 无界面模式
+```
+
 ## 🛠️ 环境准备
 1) 安装 Python 3.9+  
    - Windows：推荐官方安装包  

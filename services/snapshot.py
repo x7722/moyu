@@ -2,7 +2,7 @@ import os
 import time
 from typing import Optional
 
-from deps import cv2
+from core.deps import cv2
 
 
 def get_snapshot_dir(config: dict) -> Optional[str]:

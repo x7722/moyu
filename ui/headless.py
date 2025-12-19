@@ -2,12 +2,12 @@ import sys
 import time
 from typing import Optional
 
-from constants import APP_NAME
-from deps import cv2, mp
-from detector import FaceDetectionWorker
-from snapshot import save_snapshot
-from tray import get_tray_manager
-from work_app import switch_to_work_app
+from core.constants import APP_NAME
+from core.deps import cv2, mp
+from core.detector import FaceDetectionWorker
+from services.snapshot import save_snapshot
+from .tray import get_tray_manager
+from services.work_app import switch_to_work_app
 
 
 def run_headless(config: dict) -> None:

@@ -2,7 +2,7 @@ import threading
 import time
 from typing import List, Tuple
 
-from deps import cv2, mp
+from .deps import cv2, mp
 
 
 class FaceDetectionWorker(threading.Thread):

@@ -1,16 +1,32 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_data_files
 
-datas = [('config.yml', '.')]
+datas = [('config.yml', '.'), ('moyu.ico', '.'), ('moyu.png', '.')]
 datas += collect_data_files('mediapipe')
 
+# 添加所有模块目录
+hiddenimports = [
+    'core',
+    'core.constants',
+    'core.deps',
+    'core.paths',
+    'core.config_loader',
+    'core.detector',
+    'services',
+    'services.snapshot',
+    'services.work_app',
+    'ui',
+    'ui.tray',
+    'ui.ui_app',
+    'ui.headless',
+]
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -27,6 +43,7 @@ exe = EXE(
     a.datas,
     [],
     name='moyu',
+    icon='moyu.ico',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
