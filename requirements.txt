@@ -2,3 +2,4 @@ opencv-python
 Pillow
 mediapipe
 pywin32
+PyYAML

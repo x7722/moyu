@@ -1,10 +1,11 @@
-import json
 import os
 import sys
 import threading
 import time
 import subprocess
 from typing import Optional, List, Tuple
+
+from config_loader import load_config
 
 try:
     import tkinter as tk
@@ -70,70 +71,7 @@ def _bring_window_to_front(keywords: List[str], retries: int = 0, delay: float =
     return False
 
 
-def _get_base_dir() -> str:
-    """
-    PyInstaller onefile 时 __file__ 指向临时解包目录，使用可执行文件所在目录作为基准。
-    """
-    if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.abspath(__file__))
-
-
-def _get_bundled_config_path() -> str:
-    """
-    获取内置的默认配置路径（打包时随 exe 一起包含）。
-    """
-    bundle_dir = getattr(sys, "_MEIPASS", None)
-    if bundle_dir:
-        return os.path.join(bundle_dir, "config.json")
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-
-
-def _get_external_config_path() -> str:
-    """
-    获取用户可覆盖的外部配置路径（exe 同级）。
-    """
-    return os.path.join(_get_base_dir(), "config.json")
-
-
-def _merge_dict(base: dict, override: dict) -> dict:
-    """递归合并配置，override 中的键优先。"""
-    result = dict(base)
-    for k, v in override.items():
-        if isinstance(v, dict) and isinstance(result.get(k), dict):
-            result[k] = _merge_dict(result[k], v)
-        else:
-            result[k] = v
-    return result
-
-
-BASE_DIR = _get_base_dir()
-BUNDLED_CONFIG_PATH = _get_bundled_config_path()
-DEFAULT_CONFIG_PATH = _get_external_config_path()
 APP_NAME = "moyu"
-
-
-# =========================
-# 配置与通用工具函数
-# =========================
-
-def load_config(path: Optional[str] = None) -> dict:
-    """
-    先加载内置默认配置，再用外部配置（若存在）进行覆盖，便于用户仅填写需要改的字段。
-    """
-    base_path = BUNDLED_CONFIG_PATH
-    if not os.path.exists(base_path):
-        raise FileNotFoundError(f"内置配置文件不存在: {base_path}")
-    with open(base_path, "r", encoding="utf-8") as f:
-        base_cfg = json.load(f)
-
-    external_path = path or DEFAULT_CONFIG_PATH
-    if external_path and os.path.exists(external_path):
-        with open(external_path, "r", encoding="utf-8") as f:
-            override_cfg = json.load(f)
-        return _merge_dict(base_cfg, override_cfg)
-
-    return base_cfg
 
 
 class SystemTrayManager:

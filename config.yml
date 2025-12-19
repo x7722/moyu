@@ -1,0 +1,81 @@
+## moyu 主配置文件（YAML）
+## 外部同目录下的 config.yml 只需写你想改的字段，其余会沿用内置默认。
+
+## 使用的摄像头编号：0 为默认摄像头；如有多个摄像头可改成 1、2 等。
+camera_index: 0
+## 触发提醒所需的最少人脸数，例如 2 表示画面中同时检测到至少 2 张脸才触发。
+min_faces_for_alert: 2
+## 两次提醒之间的冷却时间（秒），在这段时间内不会重复触发。
+alert_cooldown_seconds: 15
+
+## 摄像头画面增强、MediaPipe 人脸检测灵敏度相关参数。
+camera:
+  ## 画面对比度系数：1.0 为不变，大于 1 画面更硬、更清晰，小于 1 更柔和。
+  contrast: 1.1
+  ## 亮度偏移：0 为不变，负数变暗，正数变亮，单位是像素值偏移。
+  brightness: -20
+  ## 是否对灰度图做直方图均衡，拉高对比度，在环境光复杂时能看得更清楚。
+  hist_equalization: true
+  ## 低光环境阈值，灰度平均小于此值的帧不做人脸检测。
+  low_light_threshold: 40.0
+  ## MediaPipe 人脸检测的最小置信度，推荐 0.6~0.8。
+  mp_min_confidence: 0.7
+  ## 人脸框区域面积占整帧的最小比例，过小的框会被忽略。
+  min_area_ratio: 0.01
+  ## 人脸框区域面积占整帧的最大比例，过大的框会被忽略。
+  max_area_ratio: 0.6
+  ## 连续多少帧满足条件后认为“有人”（去抖动）。
+  debounce_on_frames: 5
+  ## 连续多少帧不满足条件后认为“无人”。
+  debounce_off_frames: 15
+  ## 是否在画面上绘制检测框和置信度（调试用）。
+  debug_draw: false
+  ## 请求摄像头的分辨率（宽和高），是否生效取决于摄像头驱动。
+  frame_width: 1920
+  frame_height: 1080
+
+## 触发时是否保存截图，以及保存到哪里。
+snapshot:
+  ## true 表示启用截图功能；false 表示不保存照片。
+  enabled: true
+  ## 截图保存目录，请确保该目录存在或可创建。
+  directory: "people"
+
+## 工作应用切换相关配置：可以配置多个目标，通过 active 指定当前使用哪一个。
+work_app:
+  ## 当前启用的目标 key，需要与 targets 里的某个名称对应，例如 "vscode" 或 "idea"。
+  active: "idea"
+
+  targets:
+    ## 每个目标下配置不同操作系统下的启动/激活命令，以及可选的窗口关键字。
+    vscode:
+      ## Windows 下激活或启动 VSCode 的命令，前提是已加入 PATH；也可以写成完整 exe 路径。
+      windows_command: "code"
+      ## macOS 下激活 VSCode 的命令。
+      macos_command: "open -a \"Visual Studio Code\""
+      ## 可选：VSCode 窗口标题的关键字列表，用于在 Windows 中找到已运行的目标窗口尝试前置。
+      window_keywords: ["Visual Studio Code"]
+
+    idea:
+      ## Windows 下激活/启动 IntelliJ IDEA 的命令，示例为默认安装路径，可按需替换。
+      windows_command: "C:/Program Files/IntelliJ IDEA 2025.1/bin/idea64.exe"
+      ## macOS 下激活 IntelliJ IDEA 的命令。
+      macos_command: "open -a \"IntelliJ IDEA\""
+      ## 可选：IntelliJ IDEA 窗口标题关键字列表，用于在 Windows 中前置已打开的窗口。
+      window_keywords: ["IntelliJ IDEA"]
+
+## 预览小窗口的提示文字与显示样式相关配置。
+ui:
+  ## 触发时在预览窗口左上角显示的提示文案。
+  message: "有叼毛在看屏幕！切换"
+  ## 提示文字显示时长（毫秒），例如 3000 表示约 3 秒。
+  display_milliseconds: 3000
+  ## 是否启用系统托盘图标（Windows 生效），用于最小化到托盘和气泡提醒。macOS 下退化为仅通知。
+  enable_system_tray: true
+  ## 点击关闭或最小化时是否隐藏到托盘，托盘菜单可退出。
+  minimize_to_tray: true
+  ## 是否启动后直接放入托盘中，保持窗口隐藏。
+  start_minimized: false
+  ## 托盘气泡提示的显示秒数（5~10），到时间后自动消失。
+  tray_notification_seconds: 5
+

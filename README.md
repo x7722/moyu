@@ -8,7 +8,7 @@ moyu（摸鱼）是轻量级跨平台（Windows / macOS）的“防偷窥”小�
 - 💾 抓拍留存：触发时保存当前画面到自定义目录。
 - 🔀 自动切 App：按配置激活 VSCode / IDEA 等常用软件。
 - 🔔 托盘提醒：可最小化到系统托盘，报警时弹出气泡提示（默认 8 秒，5~10 秒自动收起）。
-- ⚙️ 配置覆盖：打包内置默认配置，exe 同目录放精简 `config.json` 即可覆盖想改的字段，其他参数沿用默认值。
+- ⚙️ 配置覆盖：打包内置默认配置，exe 同目录放精简 `config.yml`（或 `config.yaml`）即可覆盖想改的字段，其他参数沿用默认值。
 
 ## 🛠️ 环境准备
 1) 安装 Python 3.9+  
@@ -30,7 +30,7 @@ python main.py
 首运行需允许摄像头权限。默认最小化/关闭会藏到托盘（双击托盘图标恢复，右键托盘图标退出）；关闭托盘功能时关闭窗口即退出。
 
 ## 🧩 配置说明（内置 + 覆盖）
-- 程序启动时先加载打包内置的 `config.json`，再尝试读取 exe 同目录的外部 `config.json`，用其中字段递归覆盖内置值。**外部文件可以只写你想改的项**。
+- 程序启动时先加载打包内置的 `config.yml`（或 `config.yaml`），再尝试读取 exe 同目录的外部 `config.yml`（或 `config.yaml`），用其中字段递归覆盖内置值。**外部文件可以只写你想改的项**。
 - Windows 路径可用正斜杠或单反斜杠：`C:/Users/you/Pictures/people` 或 `C:\Users\you\Pictures\people`（无需双反斜杠）。
 
 ### 常用字段
@@ -43,23 +43,17 @@ python main.py
 - 摄像头高级参数（亮度、对比度、面积过滤等）如不写，使用内置默认。
 
 ### 覆盖示例（最小化配置）
-放在 exe 同目录的 `config.json`：
-```json
-{
-  "min_faces_for_alert": 1,
-  "work_app": {
-    "active": "idea",
-    "targets": {
-      "idea": {
-        "windows_command": "C:/Program Files/JetBrains/IntelliJ IDEA/bin/idea64.exe"
-      }
-    }
-  },
-  "snapshot": {
-    "enabled": true,
-    "directory": "snapshots"
-  }
-}
+放在 exe 同目录的 `config.yml`（或 `config.yaml`）：
+```yaml
+min_faces_for_alert: 1
+work_app:
+  active: idea
+  targets:
+    idea:
+      windows_command: "C:/Program Files/JetBrains/IntelliJ IDEA/bin/idea64.exe"
+snapshot:
+  enabled: true
+  directory: snapshots
 ```
 其余未写字段自动沿用内置配置。
 
@@ -72,15 +66,15 @@ python -m pip install pyinstaller
 ```
 2) 生成无控制台、单文件 exe（含内置配置与 mediapipe 数据）：
 ```bash
-python -m PyInstaller --onefile --noconsole --name moyu --add-data "config.json;." --collect-data mediapipe main.py
+python -m PyInstaller --onefile --noconsole --name moyu --add-data "config.yml;." --collect-data mediapipe main.py
 ```
-3) 产物位于 `dist/moyu.exe`。把需要覆盖的 `config.json` 放在与 `moyu.exe` 同目录即可。
+3) 产物位于 `dist/moyu.exe`。把需要覆盖的 `config.yml`（或 `config.yaml`）放在与 `moyu.exe` 同目录即可。
 
 ## 🍎 打包（macOS）
 在 mac 上执行（Win 无法跨编译 mac）：
 ```bash
 python3 -m pip install pyinstaller
-python3 -m PyInstaller --onefile --noconsole --name moyu --add-data "config.json:." --collect-data mediapipe main.py
+python3 -m PyInstaller --onefile --noconsole --name moyu --add-data "config.yml:." --collect-data mediapipe main.py
 ```
 产物为 `dist/moyu`。首次运行如被 Gatekeeper 拦截，可右键打开或自行签名/公证。
 
