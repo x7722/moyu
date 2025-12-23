@@ -80,7 +80,7 @@ class CameraPreviewApp:
         self.root.title(f"{APP_NAME} - 预览")
         self.root.attributes("-topmost", True)
         self.root.resizable(True, False)  # 只允许水平调整大小，禁用最大化
-        self.root.geometry("200x130")  # 加宽预览窗口
+        self.root.geometry("300x130")  # 加宽预览窗口
         self.root.configure(bg=self.theme_bg)
         
         # 设置窗口图标（修复任务栏显示 Python 图标的问题）

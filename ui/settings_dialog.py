@@ -109,7 +109,7 @@ class SettingsDialog:
         
         # 基础尺寸 (100% DPI 下的尺寸)
         base_width = 500
-        base_height = 520
+        base_height = 650
         
         # 根据 DPI 缩放窗口大小
         window_width, window_height = scaled_size(base_width, base_height, self.root)
