@@ -15,11 +15,13 @@ class SystemTrayManager:
     WM_TRAYICON = (win32con.WM_USER + 20) if win32con is not None else 1028
     MENU_SHOW = 1024
     MENU_EXIT = 1025
+    MENU_SETTINGS = 1026
 
-    def __init__(self, app_name: str, on_restore: Callable, on_exit: Callable):
+    def __init__(self, app_name: str, on_restore: Callable, on_exit: Callable, on_settings: Callable = None):
         self.app_name = app_name
         self.on_restore = on_restore
         self.on_exit = on_exit
+        self.on_settings = on_settings
         self._hwnd = None
         self._hicon = None
         self._thread: Optional[threading.Thread] = None
@@ -158,6 +160,9 @@ class SystemTrayManager:
     def _show_menu(self):
         menu = win32gui.CreatePopupMenu()
         win32gui.AppendMenu(menu, win32con.MF_STRING, self.MENU_SHOW, "打开")
+        if self.on_settings:
+            win32gui.AppendMenu(menu, win32con.MF_STRING, self.MENU_SETTINGS, "设置")
+        win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
         win32gui.AppendMenu(menu, win32con.MF_STRING, self.MENU_EXIT, "退出")
 
         pos = win32gui.GetCursorPos()
@@ -185,6 +190,8 @@ class SystemTrayManager:
             cmd_id = wparam & 0xFFFF
             if cmd_id == self.MENU_SHOW and self.on_restore:
                 self.on_restore()
+            elif cmd_id == self.MENU_SETTINGS and self.on_settings:
+                self.on_settings()
             elif cmd_id == self.MENU_EXIT and self.on_exit:
                 self.on_exit()
             return 1

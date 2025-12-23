@@ -88,8 +88,8 @@ def _mac_activate_app_from_command(cmd: str, window_keywords: List[str]) -> None
 def switch_to_work_app(config: dict) -> None:
     """
     执行配置中的工作应用命令：
-      - Windows：通常是 code / IDEA 的 exe 路径，同时尝试前置已打开窗口
-      - macOS：通常是 open -a "xxx"，并通过 AppleScript 显式激活到前台
+      - 首先尝试激活已打开的窗口
+      - 仅当没有找到已打开窗口时才启动新实例
     """
     work_cfg = config.get("work_app", {})
     active_key = work_cfg.get("active")
@@ -106,7 +106,11 @@ def switch_to_work_app(config: dict) -> None:
 
     window_keywords = target.get("window_keywords") or []
     if not window_keywords:
-        if active_key and active_key.lower() == "idea":
+        # 使用 display_name 作为关键字
+        display_name = target.get("display_name", "")
+        if display_name:
+            window_keywords = [display_name]
+        elif active_key and active_key.lower() == "idea":
             window_keywords = ["intellij idea"]
         elif active_key and active_key.lower() == "vscode":
             window_keywords = ["visual studio code"]
@@ -118,22 +122,29 @@ def switch_to_work_app(config: dict) -> None:
         print(f"未为当前系统配置工作应用启动命令: {cmd_key}")
         return
 
+    # Windows: 首先尝试激活已存在的窗口
     if sys.platform.startswith("win") and window_keywords:
-        _bring_window_to_front(window_keywords)
+        if _bring_window_to_front(window_keywords, retries=2, delay=0.1):
+            # 成功激活已有窗口，不需要启动新实例
+            print(f"已激活现有窗口: {window_keywords}")
+            return
 
+    # 没有找到已有窗口，启动新实例
     try:
+        print(f"启动新实例: {cmd}")
         if sys.platform.startswith("win"):
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             startupinfo.wShowWindow = getattr(subprocess, "SW_SHOWNORMAL", 1)
             subprocess.Popen(cmd, shell=True, startupinfo=startupinfo)
+            # 等待新窗口出现后再激活
+            if window_keywords:
+                time.sleep(0.5)
+                _bring_window_to_front(window_keywords, retries=10, delay=0.3)
         else:
             subprocess.Popen(cmd, shell=True)
-
-        if sys.platform.startswith("win") and window_keywords:
-            _bring_window_to_front(window_keywords, retries=10, delay=0.3)
-        elif sys.platform == "darwin":
-            _mac_activate_app_from_command(cmd, window_keywords)
+            if sys.platform == "darwin":
+                _mac_activate_app_from_command(cmd, window_keywords)
     except Exception as e:
         print(f"切换到工作应用失败: {e}")
 

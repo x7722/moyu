@@ -1,2 +1,2 @@
-APP_NAME = "moyu"
+APP_NAME = "魔芋"
 

@@ -1,4 +1,4 @@
-## moyu 主配置文件（YAML）
+## 魔芋 主配置文件（YAML）
 ## 外部同目录下的 config.yml 只需写你想改的字段，其余会沿用内置默认。
 
 ## 使用的摄像头编号：0 为默认摄像头；如有多个摄像头可改成 1、2 等。
@@ -49,6 +49,8 @@ work_app:
   targets:
     ## 每个目标下配置不同操作系统下的启动/激活命令，以及可选的窗口关键字。
     vscode:
+      ## 显示名称
+      display_name: "VS Code"
       ## Windows 下激活或启动 VSCode 的命令，前提是已加入 PATH；也可以写成完整 exe 路径。
       windows_command: "code"
       ## macOS 下激活 VSCode 的命令。
@@ -57,6 +59,8 @@ work_app:
       window_keywords: ["Visual Studio Code"]
 
     idea:
+      ## 显示名称
+      display_name: "IntelliJ IDEA"
       ## Windows 下激活/启动 IntelliJ IDEA 的命令，示例为默认安装路径，可按需替换。
       windows_command: "C:/Program Files/IntelliJ IDEA 2025.1/bin/idea64.exe"
       ## macOS 下激活 IntelliJ IDEA 的命令。
@@ -67,7 +71,7 @@ work_app:
 ## 预览小窗口的提示文字与显示样式相关配置。
 ui:
   ## 触发时在预览窗口左上角显示的提示文案。
-  message: "有叼毛在看屏幕！切换"
+  message: "屏幕！切换"
   ## 提示文字显示时长（毫秒），例如 3000 表示约 3 秒。
   display_milliseconds: 3000
   ## 是否启用系统托盘图标（Windows 生效），用于最小化到托盘和气泡提醒。macOS 下退化为仅通知。

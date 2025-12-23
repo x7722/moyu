@@ -9,12 +9,24 @@ except ImportError:  # pragma: no cover
 from .paths import get_bundled_config_paths, get_external_config_paths
 
 
-def _merge_dict(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
-    """递归合并配置，override 中的键优先。"""
+def _merge_dict(base: Dict[str, Any], override: Dict[str, Any], merge_dict_keys: set = None) -> Dict[str, Any]:
+    """
+    递归合并配置，override 中的键优先。
+    对于 merge_dict_keys 中指定的键（如 'targets'），会合并字典条目而非完全覆盖。
+    """
+    if merge_dict_keys is None:
+        merge_dict_keys = {'targets'}  # work_app.targets 应该合并而非覆盖
+    
     result = dict(base)
     for k, v in override.items():
         if isinstance(v, dict) and isinstance(result.get(k), dict):
-            result[k] = _merge_dict(result[k], v)
+            if k in merge_dict_keys:
+                # 对于 targets 等字典，合并条目（用户条目覆盖同名条目，但保留其他条目）
+                merged = dict(result[k])
+                merged.update(v)
+                result[k] = merged
+            else:
+                result[k] = _merge_dict(result[k], v, merge_dict_keys)
         else:
             result[k] = v
     return result

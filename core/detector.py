@@ -14,11 +14,14 @@ class FaceDetectionWorker(threading.Thread):
     """
 
     def __init__(self, config: dict):
-        super().__init__(daemon=True)
+        # 先检查依赖
         if cv2 is None:
             raise RuntimeError("未安装 OpenCV。请先执行 pip install opencv-python")
         if mp is None:
             raise RuntimeError("未安装 MediaPipe。请先执行 pip install mediapipe")
+        
+        # 必须调用父类的 __init__
+        super(FaceDetectionWorker, self).__init__(daemon=True)
 
         self.config = config
         camera_cfg = config.get("camera", {})
@@ -57,22 +60,14 @@ class FaceDetectionWorker(threading.Thread):
         # 线程控制
         self._stop_event = threading.Event()
         self._lock = threading.Lock()
+        # 注意：不要使用 threading.Thread 内部字段名 `_initialized`
+        self._pipeline_initialized = False
+        self._init_error = None
 
-        # 初始化摄像头
-        camera_index = config.get("camera_index", 0)
-        self.cap = cv2.VideoCapture(camera_index)
-        if self.frame_width > 0:
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
-        if self.frame_height > 0:
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
-        if not self.cap.isOpened():
-            raise RuntimeError(f"无法打开摄像头（index={camera_index}）")
-
-        # 初始化 MediaPipe Face Detection
-        self._mp_face_detection = mp.solutions.face_detection.FaceDetection(
-            model_selection=1,
-            min_detection_confidence=self.conf_threshold,
-        )
+        # 摄像头和 MediaPipe 将在线程中延迟初始化，避免阻塞 UI
+        self.camera_index = config.get("camera_index", 0)
+        self.cap = None
+        self._mp_face_detection = None
 
     # ---------- 外部读取接口 ----------
 
@@ -92,7 +87,37 @@ class FaceDetectionWorker(threading.Thread):
 
     # ---------- 主检测循环 ----------
 
+    def _init_camera_and_detector(self):
+        """在线程中初始化摄像头和 MediaPipe，避免阻塞 UI"""
+        try:
+            # 初始化摄像头
+            self.cap = cv2.VideoCapture(self.camera_index)
+            if self.frame_width > 0:
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
+            if self.frame_height > 0:
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
+            if not self.cap.isOpened():
+                raise RuntimeError(f"无法打开摄像头（index={self.camera_index}）")
+
+            # 初始化 MediaPipe Face Detection
+            self._mp_face_detection = mp.solutions.face_detection.FaceDetection(
+                model_selection=1,
+                min_detection_confidence=self.conf_threshold,
+            )
+            
+            self._pipeline_initialized = True
+        except Exception as e:
+            self._init_error = str(e)
+            self._pipeline_initialized = False
+
     def run(self):
+        # 在线程中初始化摄像头和 MediaPipe
+        self._init_camera_and_detector()
+        
+        if not self._pipeline_initialized:
+            print(f"摄像头初始化失败: {self._init_error}")
+            return
+        
         try:
             while not self._stop_event.is_set():
                 ret, frame = self.cap.read()
@@ -100,7 +125,7 @@ class FaceDetectionWorker(threading.Thread):
                     time.sleep(0.05)
                     continue
 
-                # 镜像处理，让画面更符合“照镜子”的习惯
+                # 镜像处理，让画面更符合"照镜子"的习惯
                 frame = cv2.flip(frame, 1)
 
                 # 亮度/对比度调整
@@ -191,6 +216,7 @@ class FaceDetectionWorker(threading.Thread):
 
                 time.sleep(0.01)
         finally:
-            self.cap.release()
-            self._mp_face_detection.close()
-
+            if self.cap:
+                self.cap.release()
+            if self._mp_face_detection:
+                self._mp_face_detection.close()
